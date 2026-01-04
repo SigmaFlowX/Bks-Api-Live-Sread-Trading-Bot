@@ -222,6 +222,19 @@ def start_order_book_ws(token, ticker, class_code="TQBR", depth=20):
     thread = threading.Thread(target=order_book_ws)
     thread.start()
 
+def get_positions(token):
+    url = "https://be.broker.ru/trade-api-bff-portfolio/api/v1/portfolio"
+
+    payload = {}
+    headers = {
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+
+    response = requests.request("GET", url, headers=headers, data=payload)
+    return response.json()
+
+
 # Состояние заявки:
 # 0 — Новая
 # 1 — Частично исполнена
@@ -237,5 +250,7 @@ if __name__ == "__main__":
     access_token = authorize(get_token_from_txt_file())
     start_last_candle_ws(access_token, "SBER")
     start_order_book_ws(access_token, "SBER")
+    positions = get_positions(access_token)
+
 
 
