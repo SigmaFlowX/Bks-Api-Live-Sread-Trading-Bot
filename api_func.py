@@ -217,7 +217,7 @@ def start_order_book_ws(token, ticker, class_code="TQBR", depth=20):
 
         ws.run_forever()
 
-    thread = threading.Thread(target=order_book_ws())
+    thread = threading.Thread(target=order_book_ws)
     thread.start()
 
 # Состояние заявки:
