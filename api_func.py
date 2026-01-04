@@ -5,6 +5,10 @@ import websocket
 import json
 import threading
 
+last_candles = {}
+order_books = {}
+
+
 def get_token_from_txt_file():
     file = open("token.txt")
     token = file.read()
@@ -144,8 +148,7 @@ def start_last_candle_ws(token, ticker, class_code="TQBR"):
                 handle_candle(data)
 
         def handle_candle(candle):
-            global last_candle
-            last_candle = candle
+            last_candles[ticker] = candle
 
             print(
                 f"[{candle['dateTime']}] "
@@ -191,21 +194,20 @@ def start_order_book_ws(token, ticker, class_code="TQBR", depth=20):
             ws.send(json.dumps(subscribe_message))
 
         def on_message(ws, message):
-            global last_order_book
             data = json.loads(message)
 
             if data.get("responseType") == "OrderBookSuccess":
                 print(f"Subscribed successfully to Order Book for {ticker}")
 
             elif data.get("responseType") == "OrderBook":
-                last_order_book = data
+                order_books[ticker] = data
                 handle_order_book(data)
 
         def on_error(ws, error):
             print("WebSocket error:", error)
 
         def handle_order_book(order_book):
-            print(order_book)
+            pass
 
         ws = websocket.WebSocketApp(
             "wss://ws.broker.ru/trade-api-market-data-connector/api/v1/market-data/ws",
