@@ -8,4 +8,5 @@ data/*
 .vscode/
 .DS_Store
 .ipynb_checkpoints
-BTCUSDT_1m.csv 
+BTCUSDT_1m.csv
+token.txt
