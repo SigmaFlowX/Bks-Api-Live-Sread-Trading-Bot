@@ -1,6 +1,9 @@
 import requests
 from datetime import datetime, timedelta, timezone
 import uuid
+import websocket
+import time
+import json
 
 def get_token_from_txt_file():
     file = open("token.txt")
@@ -114,6 +117,59 @@ def get_order_status(token, id):
 
     return response.json()['data']['orderStatus']
 
+def start_last_candle_ws(token, ticker, class_code="TQBR"):
+
+    def on_open(ws):
+        print("WebSocket connected")
+        subscribe_message = {
+            "subscribeType": 0,
+            "dataType": 1,
+            "timeFrame": "M1",
+            "instruments": [
+                {
+                    "classCode": class_code,
+                    "ticker": ticker
+                }
+            ]
+        }
+        ws.send(json.dumps(subscribe_message))
+
+    def on_message(ws, message):
+        data = json.loads(message)
+
+        if data.get("responseType") == "CandleStickSuccess":
+            print("Subscribed successfully:", data)
+
+        elif data.get("responseType") == "CandleStick":
+            handle_candle(data)
+
+    def handle_candle(candle):
+        global last_candle
+        last_candle = candle
+
+        print(
+            f"[{candle['dateTime']}] "
+            f"O={candle['open']} "
+            f"H={candle['high']} "
+            f"L={candle['low']} "
+            f"C={candle['close']} "
+            f"V={candle['volume']}"
+        )
+
+    def on_error(ws, error):
+        print("WebSocket error:", error)
+
+    ws = websocket.WebSocketApp(
+        "wss://ws.broker.ru/trade-api-market-data-connector/api/v1/market-data/ws",
+        header=[f"Authorization: Bearer {token}"],
+        on_open=on_open,
+        on_message=on_message,
+        on_error=on_error
+    )
+    ws.run_forever()
+
+
+
 # Состояние заявки:
 # 0 — Новая
 # 1 — Частично исполнена
@@ -127,5 +183,4 @@ def get_order_status(token, id):
 
 if __name__ == "__main__":
     access_token = authorize(get_token_from_txt_file())
-    order = place_order(access_token, "SBER", 1, 1, 2, price = 100)
-    print(get_order_status(access_token, order))
+    start_last_candle_ws(access_token, "SBER")
