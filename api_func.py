@@ -2,8 +2,8 @@ import requests
 from datetime import datetime, timedelta, timezone
 import uuid
 import websocket
-import time
 import json
+import threading
 
 def get_token_from_txt_file():
     file = open("token.txt")
@@ -118,57 +118,107 @@ def get_order_status(token, id):
     return response.json()['data']['orderStatus']
 
 def start_last_candle_ws(token, ticker, class_code="TQBR"):
+    def last_candle_ws():
+        def on_open(ws):
+            print("WebSocket connected")
+            subscribe_message = {
+                "subscribeType": 0,
+                "dataType": 1,
+                "timeFrame": "M1",
+                "instruments": [
+                    {
+                        "classCode": class_code,
+                        "ticker": ticker
+                    }
+                ]
+            }
+            ws.send(json.dumps(subscribe_message))
 
-    def on_open(ws):
-        print("WebSocket connected")
-        subscribe_message = {
-            "subscribeType": 0,
-            "dataType": 1,
-            "timeFrame": "M1",
-            "instruments": [
-                {
-                    "classCode": class_code,
-                    "ticker": ticker
-                }
-            ]
-        }
-        ws.send(json.dumps(subscribe_message))
+        def on_message(ws, message):
+            data = json.loads(message)
 
-    def on_message(ws, message):
-        data = json.loads(message)
+            if data.get("responseType") == "CandleStickSuccess":
+                print("Subscribed successfully:", data)
 
-        if data.get("responseType") == "CandleStickSuccess":
-            print("Subscribed successfully:", data)
+            elif data.get("responseType") == "CandleStick":
+                handle_candle(data)
 
-        elif data.get("responseType") == "CandleStick":
-            handle_candle(data)
+        def handle_candle(candle):
+            global last_candle
+            last_candle = candle
 
-    def handle_candle(candle):
-        global last_candle
-        last_candle = candle
+            print(
+                f"[{candle['dateTime']}] "
+                f"O={candle['open']} "
+                f"H={candle['high']} "
+                f"L={candle['low']} "
+                f"C={candle['close']} "
+                f"V={candle['volume']}"
+            )
 
-        print(
-            f"[{candle['dateTime']}] "
-            f"O={candle['open']} "
-            f"H={candle['high']} "
-            f"L={candle['low']} "
-            f"C={candle['close']} "
-            f"V={candle['volume']}"
+        def on_error(ws, error):
+            print("WebSocket error:", error)
+
+        ws = websocket.WebSocketApp(
+            "wss://ws.broker.ru/trade-api-market-data-connector/api/v1/market-data/ws",
+            header=[f"Authorization: Bearer {token}"],
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error
+        )
+        ws.run_forever()
+
+    thread = threading.Thread(target=last_candle_ws)
+    thread.start()
+
+def start_order_book_ws(token, ticker, class_code="TQBR", depth=20):
+    def order_book_ws():
+
+        def on_open(ws):
+            print(f"WebSocket connected for {ticker}")
+            subscribe_message = {
+                "subscribeType": 0,
+                "dataType": 0,
+                "depth": depth,
+                "instruments": [
+                    {
+                        "classCode": class_code,
+                        "ticker": ticker
+                    }
+                ]
+            }
+
+            ws.send(json.dumps(subscribe_message))
+
+        def on_message(ws, message):
+            global last_order_book
+            data = json.loads(message)
+
+            if data.get("responseType") == "OrderBookSuccess":
+                print(f"Subscribed successfully to Order Book for {ticker}")
+
+            elif data.get("responseType") == "OrderBook":
+                last_order_book = data
+                handle_order_book(data)
+
+        def on_error(ws, error):
+            print("WebSocket error:", error)
+
+        def handle_order_book(order_book):
+            print(order_book)
+
+        ws = websocket.WebSocketApp(
+            "wss://ws.broker.ru/trade-api-market-data-connector/api/v1/market-data/ws",
+            header=[f"Authorization: Bearer {token}"],
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error,
         )
 
-    def on_error(ws, error):
-        print("WebSocket error:", error)
+        ws.run_forever()
 
-    ws = websocket.WebSocketApp(
-        "wss://ws.broker.ru/trade-api-market-data-connector/api/v1/market-data/ws",
-        header=[f"Authorization: Bearer {token}"],
-        on_open=on_open,
-        on_message=on_message,
-        on_error=on_error
-    )
-    ws.run_forever()
-
-
+    thread = threading.Thread(target=order_book_ws())
+    thread.start()
 
 # Состояние заявки:
 # 0 — Новая
@@ -184,3 +234,6 @@ def start_last_candle_ws(token, ticker, class_code="TQBR"):
 if __name__ == "__main__":
     access_token = authorize(get_token_from_txt_file())
     start_last_candle_ws(access_token, "SBER")
+    start_order_book_ws(access_token, "SBER")
+
+
