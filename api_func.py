@@ -73,6 +73,31 @@ def get_current_price(token, ticker, class_code = "TQBR"):
         print("Failed to get current price:", response.status_code, response.text)
         return None
 
+def get_last_candles(token, ticker, since, class_code="TQBR", timeframe = "M1"):
+    url = "https://be.broker.ru/trade-api-market-data-connector/api/v1/candles-chart"
+
+    end_date = datetime.now(timezone.utc)
+    start_date = d = datetime.strptime(since, "%Y-%m-%d").date()
+    start_date_str = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    payload = {
+        "classCode": class_code,
+        "ticker": ticker,
+        "startDate": start_date_str,
+        "endDate": end_date_str,
+        "timeFrame": timeframe
+    }
+
+    response = requests.get(url, headers=headers, params=payload)
+
+    return response.json()['bars']
+
 def place_order(token, ticker, quantity, direction,  order_type, class_code="TQBR", price=None):  # 1 - buy, 2 - sell, 1 - market, 2 - limit
 
     url = "https://be.broker.ru/trade-api-bff-operations/api/v1/orders"
@@ -248,9 +273,8 @@ def get_positions(token):
 
 if __name__ == "__main__":
     access_token = authorize(get_token_from_txt_file())
-    start_last_candle_ws(access_token, "SBER")
-    start_order_book_ws(access_token, "SBER")
-    positions = get_positions(access_token)
+    print(get_last_candles(access_token, "SBER", since="2025-12-20", timeframe="MN")[0])
+
 
 
 
