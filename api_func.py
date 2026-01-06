@@ -76,10 +76,6 @@ def get_current_price(token, ticker, class_code = "TQBR"):
 def get_last_candles(token, ticker, since, class_code="TQBR", timeframe = "M1"):
     url = "https://be.broker.ru/trade-api-market-data-connector/api/v1/candles-chart"
 
-    end_date = datetime.now(timezone.utc)
-    start_date = d = datetime.strptime(since, "%Y-%m-%d").date()
-    start_date_str = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-    end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     headers = {
         "Accept": "application/json",
@@ -89,8 +85,8 @@ def get_last_candles(token, ticker, since, class_code="TQBR", timeframe = "M1"):
     payload = {
         "classCode": class_code,
         "ticker": ticker,
-        "startDate": start_date_str,
-        "endDate": end_date_str,
+        "startDate": since,
+        "endDate": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "timeFrame": timeframe
     }
 
